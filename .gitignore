@@ -1,0 +1,6 @@
+build/
+dist/
+Entregable/
+*.spec
+__pycache__/
+partidas/

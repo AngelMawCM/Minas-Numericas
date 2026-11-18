@@ -2,12 +2,23 @@
 import json
 import os
 import random
+import shutil
 import time
 
 from metodos import METODOS, SECCIONES
 
 AQUI = os.path.dirname(os.path.abspath(__file__))
-CARPETA = os.path.join(AQUI, "partidas")  # aqui viven las ranuras partida_1.json ... partida_5.json
+
+
+def carpeta_datos():
+    """Carpeta de datos de CADA usuario: en Windows %APPDATA%\\MinasNumericas.
+    Asi cada persona tiene sus propias partidas y no se pierden al usar el .exe."""
+    base = os.environ.get("APPDATA") or os.path.join(os.path.expanduser("~"), ".local", "share")
+    return os.path.join(base, "MinasNumericas")
+
+
+CARPETA = os.path.join(carpeta_datos(), "partidas")  # aqui viven las ranuras partida_1.json ... partida_5.json
+CARPETA_VIEJA = os.path.join(AQUI, "partidas")  # donde se guardaba antes (junto al codigo)
 ARCHIVO_VIEJO = os.path.join(AQUI, "partida.json")  # version anterior (una sola partida)
 RANURAS = 5
 FUSIBLES = 3
@@ -107,8 +118,13 @@ class Almacen:
         return os.path.join(self.carpeta, "activa.txt")
 
     def _migrar(self):
-        """Si existe el partida.json de la version anterior y la ranura 1 esta libre, lo pasa ahi."""
-        try:
+        """Pasa las partidas de versiones anteriores a la carpeta del usuario."""
+        try:  # partidas que estaban junto al codigo -> carpeta del usuario (solo si aun no hay ninguna)
+            if (self.carpeta == CARPETA and os.path.isdir(CARPETA_VIEJA) and not os.path.isdir(self.carpeta)):
+                shutil.copytree(CARPETA_VIEJA, self.carpeta)
+        except OSError:
+            pass
+        try:  # partida.json de la primera version -> ranura 1
             if not self.viejo or not os.path.exists(self.viejo) or os.path.exists(self.ruta(1)):
                 return
             with open(self.viejo, encoding="utf-8") as f:

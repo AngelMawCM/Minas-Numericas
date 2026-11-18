@@ -17,13 +17,17 @@ GRIS = (90, 90, 100)
 RAINBOW = [(255, 80, 80), (255, 160, 40), (255, 230, 60), (90, 230, 90), (70, 200, 255), (170, 110, 255), (255, 100, 200)]
 LIMPIAR = {"Σ": "Suma ", "Δ": "Delta", "∇": "Nabla", "²": "^2", "³": "^3", "⁴": "^4", "⁶": "^6", "·": "*", "✔": "OK",
            "■": "#", "□": "-", "≤": "<=", "→": "->", "¡": "!", "¿": "?"}
-AQUI = os.path.dirname(os.path.abspath(__file__))
+# dentro del .exe (PyInstaller) los recursos estan en sys._MEIPASS
+AQUI = getattr(sys, "_MEIPASS", os.path.dirname(os.path.abspath(__file__)))
 
 
 class App:
     def __init__(self):
         pygame.init()
         pygame.display.set_caption("Minas Numéricas")
+        icono = os.path.join(AQUI, "icono.png")
+        if os.path.exists(icono):
+            pygame.display.set_icon(pygame.image.load(icono))
         self.pantalla = pygame.display.set_mode((ANCHO, ALTO))
         self.reloj = pygame.time.Clock()
         self.ruta_fuente = None
