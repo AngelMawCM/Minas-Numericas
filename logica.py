@@ -41,7 +41,9 @@ class Ejercicio:
         if v is None or self.fin:
             return "invalido"
         esperado = self.paso[1]
-        if abs(v - esperado) <= max(0.001, abs(esperado) * 0.001):
+        # notas: "El margen de error permitido es de 2 diez milesimas" (0.0002);
+        # en sumas muy grandes (minimos cuadrados) se permite 0.01 % del valor
+        if abs(v - esperado) <= max(0.0002, abs(esperado) * 0.0001):
             self.i += 1
             if self.i >= len(self.pasos):
                 self.fin = self.gano = True

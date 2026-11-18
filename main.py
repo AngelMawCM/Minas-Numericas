@@ -148,7 +148,7 @@ class App:
                     pygame.draw.rect(self.pantalla, tuple(c // 5 for c in color), r)
                     pygame.draw.rect(self.pantalla, color, r, 3 if hecho else 1)
                     yy = r[1] + 6
-                    for ln in self.envolver(m["nombre"], 14, r[2] - 12)[:2]:
+                    for ln in self.envolver(m["corto"], 14, r[2] - 12)[:2]:
                         yy += self.texto(ln, r[0] + 6, yy, color, 14) + 1
                     self.texto(f"✔ x{hecho}" if hecho else "sin completar", r[0] + 6, r[1] + 46, (255, 230, 60) if hecho else GRIS, 13)
                     if jugable:

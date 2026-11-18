@@ -8,7 +8,7 @@ SECCIONES = [
     ("Ecuaciones lineales", "Raro", (80, 160, 255)),
     ("Integración", "Épico", (190, 90, 255)),
     ("Ecuaciones no lineales", "Legendario", (255, 170, 30)),
-    ("Ecuaciones diferenciales (EDO)", "Mítico", (255, 70, 110)),
+    ("Ecuaciones Diferenciales Ordinarias (EDO)", "Mítico", (255, 70, 110)),
 ]
 PROB_EJEMPLO = 0.2  # probabilidad de que salga el ejemplo exacto de los apuntes
 
@@ -54,7 +54,7 @@ def resolver_sistema(A, b):
 
 
 # ====================== INTERPOLACION ======================
-FUNCS = [("ln(x)", math.log), ("sqrt(x)", math.sqrt), ("sin(x)", math.sin), ("exp(x/3)", lambda x: math.exp(x / 3))]
+FUNCS = [("ln(x)", math.log), ("sqrt(x)", math.sqrt), ("sen(x)", math.sin), ("exp(x/3)", lambda x: math.exp(x / 3))]
 
 
 def tabla(xs, ys):
@@ -171,8 +171,8 @@ def calc_divididas(xs, ys, xv, ej=False):
         if k:
             prod *= (xv - xs[k - 1])
         g += t[k][0] * prod
-        pasos.append(P(f"D{k}", t[k][0], "D0 = y1;  Dk = (resta de dos diferencias k-1) / (resta de x no comunes)"))
-    pasos.append(P("g(x) = D0 + D1(x-x1) + ...", g, "g(x) = D0 + D1(x-x1) + D2(x-x1)(x-x2) + ..."))
+        pasos.append(P(f"D{k}1" if k else "D0 = y1", t[k][0], "D0 = y1;  Dk1 = (resta de dos diferencias de tipo k-1) / (resta de dos valores de x no comunes)"))
+    pasos.append(P("g(x) = D0 + D11(x-x1) + D21(x-x1)(x-x2) + ...", g, "g(x) = D0 + D11 (x - x1) + D21 (x - x1)(x - x2) + D31 (x - x1)(x - x2)(x - x3) + ..."))
     return problema(f"NEWTON con DIFERENCIAS DIVIDIDAS\n{tabla(xs, ys)}\nObtén g({fmt(xv)})", pasos, ej)
 
 
@@ -326,33 +326,59 @@ def g_gauss():
         P("x1", x1, "x1 = (b1 - a12·x2 - a13·x3) / a11")])
 
 
-def calc_iter(A, b, x0, seidel, ej=False):
-    x = [float(v) for v in x0]
-    pasos = []
-    nom = "GAUSS-SEIDEL" if seidel else "JACOBI"
-    v = ("a", "b", "c")
-    for it in (1, 2):
-        old = x[:]
+EPS = 0.001  # margen de error de las notas: Є = |x(i+1) - x(i)| = 0.001
+
+
+def _iterar(A, b, x0, seidel, maximo=50):
+    """Devuelve la lista de vectores [x0, x1, x2, ...] hasta que todos los Є <= 0.001."""
+    hist = [[float(v) for v in x0]]
+    while len(hist) <= maximo:
+        x, old = hist[-1][:], hist[-1]
         for i in range(3):
             src = x if seidel else old
             x[i] = (b[i] - sum(A[i][j] * src[j] for j in range(3) if j != i)) / A[i][i]
+        hist.append(x)
+        if max(abs(x[i] - old[i]) for i in range(3)) <= EPS:
+            break
+    return hist
+
+
+def _sistema_iter(x0, seidel):
+    """Sistema al azar que converge en 3 a 6 iteraciones (las notas usan 4)."""
+    while True:
+        A, b, _ = _sistema()
+        if 3 <= len(_iterar(A, b, x0, seidel)) - 1 <= 6:
+            return A, b
+
+
+def calc_iter(A, b, x0, seidel, ej=False):
+    hist = _iterar(A, b, x0, seidel)
+    pasos = []
+    nom = "GAUSS-SEIDEL" if seidel else "JACOBI"
+    v = ("a", "b", "c")
+    for it in range(1, len(hist)):
+        old = hist[it - 1]
+        x = hist[it]
+        for i in range(3):
             pasos.append(P(f"{v[i]}{it}", x[i], f"{v[i]} = (término independiente - otros coeficientes por sus valores) / coef. de {v[i]}" +
                            ("  (usa los valores ya actualizados)" if seidel else "  (usa SOLO los valores de la iteración anterior)")))
-    return problema(f"{nom}, valores iniciales a0 = {x0[0]}, b0 = {x0[1]}, c0 = {x0[2]}; haz 2 iteraciones\n" + _txt(A, b), pasos, ej)
+    n = len(hist) - 1
+    for i in range(3):
+        pasos.append(P(f"ɛ{v[i]} = │{v[i]}{n} – {v[i]}{n-1}│", abs(hist[n][i] - hist[n - 1][i]), f"ɛ{v[i]} = │{v[i]}(i+1) – {v[i]}(i)│  (última iteración)"))
+    return problema(f"{nom}, valores iniciales a0 = {x0[0]}, b0 = {x0[1]}, c0 = {x0[2]}   ɛ = 0.001\n" + _txt(A, b) +
+                    "\nItera hasta que ɛa, ɛb y ɛc sean <= 0.001", pasos, ej)
 
 
 def g_jacobi():
     if usar_ejemplo():
         return calc_iter(PDF_A, PDF_B, (1, 1, 1), False, True)
-    A, b, _ = _sistema()
-    return calc_iter(A, b, (1, 1, 1), False)
+    return calc_iter(*_sistema_iter((1, 1, 1), False), (1, 1, 1), False)
 
 
 def g_seidel():
     if usar_ejemplo():
         return calc_iter(PDF_A, PDF_B, (0, 0, 0), True, True)
-    A, b, _ = _sistema()
-    return calc_iter(A, b, (0, 0, 0), True)
+    return calc_iter(*_sistema_iter((0, 0, 0), True), (0, 0, 0), True)
 
 
 # ====================== ECUACIONES NO LINEALES ======================
@@ -371,41 +397,44 @@ def _fn():
 
 def g_grafico():
     nom, f, df, a, b, x0 = _fn()
-    xs = [a + i * (b - a) / 4 for i in range(5)]
+    xs = list(range(-3, 4))  # como en las notas: X de -3 a 3
     v = [f(x) for x in xs]
-    k = next((i for i in range(4) if v[i] * v[i + 1] <= 0), 0)
-    pasos = [P(f"f({fmt(x)})", y, "sustituir x en f(x) (tabla de valores)") for x, y in zip(xs, v)]
-    pasos.append(P("x izquierdo del subintervalo donde f cambia de signo", xs[k], "la raíz está donde la gráfica cruza el eje x"))
-    return problema(f"MÉTODO GRÁFICO\nf(x) = {nom}\nHaz la tabla en x = {', '.join(fmt(x) for x in xs)}\nY da el x izquierdo del subintervalo con cambio de signo", pasos)
+    raices = [xs[i] for i in range(len(xs)) if v[i] == 0 or (i < len(xs) - 1 and v[i] * v[i + 1] < 0)]
+    pasos = [P(f"y para x = {x}", y, "sustituir x en y (tabla de valores X, Y)") for x, y in zip(xs, v)]
+    pasos.append(P("¿Cuántas veces cruza la gráfica el eje x?", len(raices), "cuenta los cambios de signo de y entre dos x seguidos"))
+    pasos += [P(f"Raíz {k+1}: x izquierdo del intervalo donde cruza", r, "la raíz está entre este x y el siguiente (y cambia de signo)") for k, r in enumerate(raices)]
+    return problema(f"MÉTODO GRÁFICO\ny = {nom}\nTabula y para x = -3, -2, -1, 0, 1, 2, 3\ny observa dónde la gráfica cruza el eje x", pasos)
 
 
 def g_biseccion():
     nom, f, df, a, b, x0 = _fn()
     a0, b0 = a, b
     cs = []
-    for _ in range(3):
+    while len(cs) < 2 or abs(cs[-1] - cs[-2]) > EPS:
         c = (a + b) / 2
         cs.append(c)
         if f(a) * f(c) <= 0:
             b = c
         else:
             a = c
-    pasos = [P(f"x{i+1} = (a+b)/2", cs[i], "x = (a + b) / 2   (descarta la mitad sin cambio de signo)") for i in range(3)]
-    pasos.append(P("Є = |x3 - x2|", abs(cs[2] - cs[1]), "Є = |x(i+1) - x(i)|"))
-    return problema(f"BISECTRIZ, 3 iteraciones\nf(x) = {nom}\nIntervalo inicial a = {fmt(a0)}, b = {fmt(b0)}", pasos)
+    n = len(cs)
+    pasos = [P(f"x{i+1} = (a+b)/2", cs[i], "x = (a + b) / 2   (descarta la mitad sin cambio de signo)") for i in range(n)]
+    pasos.append(P(f"Є = |x{n} - x{n-1}|", abs(cs[-1] - cs[-2]), "Є = │x i+1 - x i│ = 0.001"))
+    return problema(f"BISECTRIZ\nf(x) = {nom}\nIntervalo inicial a = {fmt(a0)}, b = {fmt(b0)}\nItera hasta que Є = │x i+1 - x i│ <= 0.001", pasos)
 
 
 def g_falsa():
     nom, f, df, a, b, x0 = _fn()
     a0 = a
     xs = []
-    for _ in range(3):
+    while (len(xs) < 2 or abs(xs[-1] - xs[-2]) > EPS) and len(xs) < 50:
         x = a - f(a) * (b - a) / (f(b) - f(a))
         xs.append(x)
         a = x
-    pasos = [P(f"x{i+1}", xs[i], "x = a - f(a)(b-a) / (f(b) - f(a));  b se queda fijo y a = x anterior") for i in range(3)]
-    pasos.append(P("Є = |x3 - x2|", abs(xs[2] - xs[1]), "Є = |x(i+1) - x(i)|"))
-    return problema(f"FALSA POSICIÓN (b fijo), 3 iteraciones\nf(x) = {nom}\na = {fmt(a0)}, b = {fmt(b)}", pasos)
+    n = len(xs)
+    pasos = [P(f"x{i+1}", xs[i], "x = a – f(a)(b-a) / (f(b) – f(a));  tiene un punto fijo que es b, y a = x anterior") for i in range(n)]
+    pasos.append(P(f"Є = │x{n} – x{n-1}│", abs(xs[-1] - xs[-2]), "Є = Error = │xi+1 – xi│ = 0.001"))
+    return problema(f"FALSA POSICIÓN (b fijo)\nf(x) = {nom}\na = {fmt(a0)}, b = {fmt(b)}\nItera hasta que Є = │xi+1 – xi│ <= 0.001", pasos)
 
 
 def g_newtonraphson():
@@ -437,17 +466,18 @@ def g_puntofijo():
 def g_secante():
     nom, f, df, a, b, x0 = _fn()
     p, q, xs = a, b, []
-    for _ in range(3):
+    while abs(q - p) > EPS and len(xs) < 50:
         n = q - f(q) * (q - p) / (f(q) - f(p))
         xs.append(n)
         p, q = q, n
-    pasos = [P(f"x{i+2}", xs[i], "x(i+1) = xi - f(xi)(xi - x(i-1)) / (f(xi) - f(x(i-1)))") for i in range(3)]
-    pasos.append(P("Є = |x4 - x3|", abs(xs[2] - xs[1]), "Є = |x(i+1) - x(i)|"))
-    return problema(f"SECANTE, 3 iteraciones\nf(x) = {nom}\nx0 = {fmt(a)}   x1 = {fmt(b)}", pasos)
+    k = len(xs)
+    pasos = [P(f"x{i+2}", xs[i], "Xi+1 = xi+1 – f(xi+1)(xi+1 - xi) / (f(xi+1) - f(xi))   ej. x2 = x1 – f(x1)(x1 – x0) / (f(x1) – f(x0))") for i in range(k)]
+    pasos.append(P(f"Є = │x{k+1} – x{k}│", abs(q - p), "Є = Error = │xi+1 – xi│ = 0.001"))
+    return problema(f"SECANTE\nf(x) = {nom}\nx0 = {fmt(a)}   x1 = {fmt(b)}\nItera hasta que Є = │xi+1 – xi│ <= 0.001", pasos)
 
 
 # ====================== INTEGRACION ======================
-INT = [("1 - x^2", lambda x: 1 - x * x, 0, 1), ("e^x", math.exp, 0, 1), ("sin(x)", math.sin, 0, 2),
+INT = [("1 - x^2", lambda x: 1 - x * x, 0, 1), ("e^x", math.exp, 0, 1), ("sen(x)", math.sin, 0, 2),
        ("1/x", lambda x: 1 / x, 1, 3), ("sqrt(x)", math.sqrt, 1, 4), ("1/(1+x^2)", lambda x: 1 / (1 + x * x), 0, 2)]
 CERRADAS = {1: (Fraction(1, 2), [1, 1]), 2: (Fraction(1, 3), [1, 4, 1]), 3: (Fraction(3, 8), [1, 3, 3, 1]),
             4: (Fraction(2, 45), [7, 32, 12, 32, 7]), 5: (Fraction(5, 288), [19, 75, 50, 50, 75, 19]),
@@ -505,20 +535,22 @@ def _en(titulo, nom, y0, t0, h, ej=False):
     return f"{titulo}\ny' = {nom}     y0 = {fmt(y0)}   t0 = {fmt(t0)}   h = {fmt(h)}\nCalcula un paso: y1"
 
 
-def calc_euler_mod(nom, f, y0, t0, h):
+def calc_euler_mod(nom, f, y0, t0, h, y1, ej=False):
+    t1 = t0 + h
     f0 = f(y0, t0)
-    yp = y0 + h * f0
-    f1 = f(yp, t0 + h)
-    y1 = y0 + h / 2 * (f0 + f1)
-    return problema(_en("EULER MODIFICADO (regla trapezoidal)", nom, y0, t0, h) + "\n(para y1 en f(y1,t1) usa primero Euler hacia adelante)", [
-        P("f(y0,t0)", f0, "f(y0, t0)"), P("y1 provisional = y0 + h·f(y0,t0)", yp, "y1* = y0 + h·f(y0,t0)"),
-        P("f(y1*, t1)", f1, "f(y1*, t0 + h)"), P("y1 = y0 + h/2·[f(y0,t0) + f(y1*,t1)]", y1, "y(n+1) = yn + h/2 [f(yn,tn) + f(y(n+1),t(n+1))]")])
+    f1 = f(y1, t1)
+    yp1 = y0 + h / 2 * (f0 + f1)
+    return problema(f"EULER MODIFICADO\ny' = {nom}     y0 = {fmt(y0)}   y1 = {fmt(y1)}   t0 = {fmt(t0)}   h = {fmt(h)}\n"
+                    f"Considera t1 = t0 + h = {fmt(t1)}.  Calcula y´1", [
+        P("f(y0, t0)", f0, "f(y0, t0)"), P("f(y1, t1)", f1, "f(y1, t1)  con  t1 = t0 + h"),
+        P("y´1 = y0 + h/2 [f(y0,t0) + f(y1,t1)]", yp1, "y´1 = y0 + h/2 [ f (y0, t0)  + f (y1, t1) ]")], ej)
 
 
 def g_euler_mod():
     if usar_ejemplo():
-        return calc_euler_mod("(5yt - 1)/3", lambda y, t: (5 * y * t - 1) / 3, 1.2, 0, 0.2)
-    return calc_euler_mod(*_edo())
+        return calc_euler_mod("(5yt - 1)/3", lambda y, t: (5 * y * t - 1) / 3, 1.2, 0, 0.2, 2, True)
+    nom, f, y0, t0, h = _edo()
+    return calc_euler_mod(nom, f, y0, t0, h, round(y0 + h * f(y0, t0), 2))
 
 
 def calc_rk2(nom, f, y0, t0, h):
@@ -612,17 +644,24 @@ def g_rk_superior():
 # ====================== CATALOGO (32) ======================
 _defs = [
     (0, "Interpolación lineal", g_lineal), (0, "Newton hacia adelante", g_adelante), (0, "Newton hacia atrás", g_atras),
-    (0, "Diferencias divididas", g_divididas), (0, "Lagrange", g_lagrange),
+    (0, "Newton con Diferencias Divididas", g_divididas), (0, "Lagrange", g_lagrange),
     (1, "Línea recta", g_recta), (1, "Cuadrática", g_cuadratica), (1, "Cúbica", g_cubica),
     (1, "Lineal con función", g_funcion), (1, "Cuadrática con función", g_cuad_funcion),
     (2, "Montante", g_montante), (2, "Gauss-Jordán", g_gaussjordan), (2, "Eliminación gaussiana", g_gauss),
     (2, "Gauss-Seidel", g_seidel), (2, "Jacobi", g_jacobi),
-    (3, "Regla trapezoidal", g_trapecio), (3, "1/3 de Simpson", g_simpson13), (3, "3/8 de Simpson", g_simpson38),
+    (3, "Regla trapezoidal", g_trapecio), (3, "Regla de 1/3 Simpson", g_simpson13), (3, "Regla de 3/8 Simpson", g_simpson38),
     (3, "Newton-Cotes cerradas", g_cotes_cerrada), (3, "Newton-Cotes abiertas", g_cotes_abierta),
-    (4, "Método gráfico", g_grafico), (4, "Bisectriz", g_biseccion), (4, "Punto fijo", g_puntofijo),
-    (4, "Newton-Raphson", g_newtonraphson), (4, "Falsa posición", g_falsa), (4, "Secante", g_secante),
-    (5, "Euler modificado", g_euler_mod), (5, "Runge-Kutta 2º orden", g_rk2), (5, "Runge-Kutta 3er orden", g_rk3),
-    (5, "Runge-Kutta 4º (1/3)", g_rk4_13), (5, "Runge-Kutta 4º (3/8)", g_rk4_38), (5, "Runge-Kutta orden superior", g_rk_superior),
+    (4, "Método gráfico", g_grafico), (4, "Bisectriz", g_biseccion), (4, "Punto Fijo ó Sustituciones Sucesivas", g_puntofijo),
+    (4, "Newton Raphson", g_newtonraphson), (4, "Falsa Posición ó Regula – Falsi", g_falsa), (4, "Secante", g_secante),
+    (5, "Euler modificado", g_euler_mod), (5, "Runge – Kutta de 2º orden", g_rk2), (5, "Runge – Kutta de 3er. Orden", g_rk3),
+    (5, "Runge – Kutta de 4to. Orden por 1/3 de Simpson", g_rk4_13), (5, "Runge – Kutta de 4to. Orden por 3/8 de Simpson", g_rk4_38),
+    (5, "Runge – Kutta de Orden Superior", g_rk_superior),
 ]
-METODOS = [{"id": i, "seccion": s, "nombre": n, "gen": g} for i, (s, n, g) in enumerate(_defs)]
+# nombre corto solo para las tarjetas del menú (el nombre completo sale en el problema)
+CORTOS = {"Newton con Diferencias Divididas": "Newton con Dif. Divididas",
+          "Punto Fijo ó Sustituciones Sucesivas": "Punto Fijo ó Sust. Sucesivas",
+          "Runge – Kutta de 4to. Orden por 1/3 de Simpson": "R–K 4to. Orden 1/3 Simpson",
+          "Runge – Kutta de 4to. Orden por 3/8 de Simpson": "R–K 4to. Orden 3/8 Simpson",
+          "Runge – Kutta de Orden Superior": "R–K de Orden Superior"}
+METODOS = [{"id": i, "seccion": s, "nombre": n, "corto": CORTOS.get(n, n), "gen": g} for i, (s, n, g) in enumerate(_defs)]
 assert len(METODOS) == 32

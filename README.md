@@ -18,7 +18,7 @@ python main.py
 
 - Empiezas con los 5 métodos de Interpolación (rareza Común).
 - Elige un método y resuelve cada paso (3 fusibles). Enter = enviar, F1 = fórmula, Esc = salir.
-- Aceptan 0.001 de diferencia (o 0.1 %), así que puedes redondear a 3-4 decimales.
+- Margen de error permitido: 2 diez milésimas (0.0002), como en las notas; en valores muy grandes se acepta 0.01 % del valor. Usa al menos 4 decimales.
 - Al completar un método puede desbloquearse otro cualquiera. Mientras más difícil la sección completada, más probabilidad de premio y más chance de rarezas altas.
 - Rarezas: Interpolación = Común, Mínimos cuadrados = Poco común, Lineales = Raro, Integración = Épico, No lineales = Legendario, EDO = Mítico.
 - Botón **COLECCIÓN**: todo lo desbloqueado y cuántas veces completaste cada método.
